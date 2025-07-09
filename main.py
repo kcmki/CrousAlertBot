@@ -11,6 +11,10 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.guild_messages = True
+from keep_alive import keep_alive
+
+keep_alive()
+
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
