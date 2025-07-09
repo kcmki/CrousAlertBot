@@ -1,0 +1,4 @@
+discord-py
+curl-cffi
+Flask
+dotenv
