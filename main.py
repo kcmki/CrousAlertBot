@@ -147,12 +147,15 @@ async def check_crous_api():
 
     try:
         response = requests.post(API_URL, json=get_payload())
-
+        print(f"Response API code : {response.status_code}")
         if response.status_code == 200:
+            
             data = response.json()
+            print(data)
             results = data.get('results', {})
             items = results.get('items', [])
-
+            if items:
+                print(items)
             # Create set of current item IDs
             current_results = {item.get('id') for item in items}
 
