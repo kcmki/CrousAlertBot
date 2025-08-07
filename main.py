@@ -129,11 +129,16 @@ def create_accommodation_embed(item):
                         inline=False)
 
     # Reference
+    accommodation_id = item.get('id', 'N/A')
+    accommodation_url = f"https://trouverunlogement.lescrous.fr/tools/41/accommodations/{accommodation_id}"
     embed.add_field(
         name="🔗 Reference",
-        value=
-        f"Code: {item.get('code', 'N/A')} | Ref: {item.get('reference', 'N/A')}",
-        inline=False)
+        value=(
+            f"Code: {item.get('code', 'N/A')} | Ref: {item.get('reference', 'N/A')}\n"
+            f"[Voir sur le site]({accommodation_url})"
+        ),
+        inline=False
+    )
 
     return embed
 
