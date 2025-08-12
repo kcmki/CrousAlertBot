@@ -5,6 +5,8 @@ from curl_cffi import requests
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+
 load_dotenv()
 # Bot configuration
 intents = discord.Intents.default()
@@ -20,6 +22,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Global variables for tracking
 last_results = set()
+last_studefi_results = set()
 channel = None
 location_bounds = {
     "lon1": 1.9954155920674,
@@ -29,6 +32,7 @@ location_bounds = {
 }
 
 API_URL = "https://trouverunlogement.lescrous.fr/api/fr/search/41"
+STUDEFI_URL = "https://www.studefi.fr/main.php"
 
 
 def get_payload():
@@ -143,6 +147,15 @@ def create_accommodation_embed(item):
     return embed
 
 
+def create_studefi_embed(name, link):
+    """Create a Discord embed for a Studefi residence"""
+    full_link = f"{STUDEFI_URL.split('main.php')[0]}{link}"
+    embed = discord.Embed(title=f"🏢 {name}", color=0x00ff00)
+    embed.add_field(name="📍 Location", value="Studefi Residence", inline=False)
+    embed.add_field(name="🔗 Link", value=f"[View on website]({full_link})", inline=False)
+    return embed
+
+
 async def check_crous_api():
     """Check the CROUS API for new accommodations"""
     global last_results, channel
@@ -192,13 +205,62 @@ async def check_crous_api():
         print(f"Error checking API: {e}")
 
 
+async def check_studefi():
+    """Check Studefi website for available residences"""
+    global last_studefi_results, channel
+
+    if not channel:
+        return
+
+    try:
+        response = requests.get(STUDEFI_URL, impersonate="chrome")
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            elements = soup.find_all("div", class_="col-sm-6 list-res-elem")
+            
+            current_results = set()
+            new_residences = []
+
+            for elem in elements:
+                img_tag = elem.find("img", class_="dispoRes")
+                if img_tag:
+                    img_src = img_tag.get("src", "")
+                    if "non_disponibles" not in img_src:
+                        name_tag = elem.find("div", class_="list-res-link").find("a")
+                        name = name_tag.get_text(strip=True)
+                        link = name_tag.get("href", "")
+                        result_id = f"{name}:{link}"
+                        current_results.add(result_id)
+                        
+                        if result_id not in last_studefi_results:
+                            new_residences.append((name, link))
+
+            last_studefi_results = current_results
+
+            if new_residences:
+                await channel.send(f"🏢 **{len(new_residences)} new Studefi residence(s) available!**")
+                for name, link in new_residences:
+                    embed = create_studefi_embed(name, link)
+                    await channel.send(embed=embed)
+
+    except Exception as e:
+        print(f"Error checking Studefi: {e}")
+
+
 @tasks.loop(seconds=5)
 async def api_monitor():
     """Task that runs every 5 seconds to check the API"""
     await check_crous_api()
 
 
+@tasks.loop(seconds=5)
+async def studefi_monitor():
+    """Task that runs every 5 seconds to check Studefi"""
+    await check_studefi()
+
+
 @api_monitor.before_loop
+@studefi_monitor.before_loop
 async def before_api_monitor():
     """Wait until the bot is ready before starting the monitoring"""
     await bot.wait_until_ready()
@@ -228,9 +290,11 @@ async def on_ready():
 
     if channel:
         print(f"Using channel: {channel.name} in {channel.guild.name}")
-        # Start the monitoring task
+        # Start both monitoring tasks
         if not api_monitor.is_running():
             api_monitor.start()
+        if not studefi_monitor.is_running():
+            studefi_monitor.start()
     else:
         print("No suitable channel found or created")
 
@@ -263,20 +327,39 @@ async def status(ctx):
     """Show current bot status and configuration"""
     embed = discord.Embed(title="🤖 Bot Status", color=0x0099ff)
 
+    # Search Area Info
     embed.add_field(
         name="📍 Current Search Area",
         value=f"Point 1: {location_bounds['lon1']}, {location_bounds['lat1']}\n"
         f"Point 2: {location_bounds['lon2']}, {location_bounds['lat2']}",
         inline=False)
 
-    embed.add_field(name="🔄 Monitoring",
-                    value="✅ Active (checking every 5 seconds)"
-                    if api_monitor.is_running() else "❌ Inactive",
-                    inline=True)
+    # Monitoring Status
+    crous_status = "✅ Active" if api_monitor.is_running() else "❌ Inactive"
+    studefi_status = "✅ Active" if studefi_monitor.is_running() else "❌ Inactive"
+    
+    embed.add_field(
+        name="🔄 Monitoring Status",
+        value=f"**CROUS:** {crous_status}\n**Studefi:** {studefi_status}\n"
+              f"*Checking every 5 seconds*",
+        inline=False
+    )
 
-    embed.add_field(name="📊 Tracked Items",
-                    value=f"{len(last_results)} accommodations in last check",
-                    inline=True)
+    # Statistics
+    embed.add_field(
+        name="📊 Currently Tracking",
+        value=f"**CROUS:** {len(last_results)} accommodations\n"
+              f"**Studefi:** {len(last_studefi_results)} residences",
+        inline=False
+    )
+
+    # Service URLs
+    embed.add_field(
+        name="🔗 Service URLs",
+        value=f"[CROUS]({API_URL.split('/api')[0]})\n"
+              f"[Studefi]({STUDEFI_URL})",
+        inline=False
+    )
 
     await ctx.send(embed=embed)
 
