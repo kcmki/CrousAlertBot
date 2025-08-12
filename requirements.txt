@@ -2,3 +2,4 @@ discord-py
 curl-cffi
 Flask
 dotenv
+beautifulsoup4

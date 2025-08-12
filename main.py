@@ -247,13 +247,13 @@ async def check_studefi():
         print(f"Error checking Studefi: {e}")
 
 
-@tasks.loop(seconds=5)
+@tasks.loop(seconds=3)
 async def api_monitor():
     """Task that runs every 5 seconds to check the API"""
     await check_crous_api()
 
 
-@tasks.loop(seconds=5)
+@tasks.loop(seconds=3)
 async def studefi_monitor():
     """Task that runs every 5 seconds to check Studefi"""
     await check_studefi()
