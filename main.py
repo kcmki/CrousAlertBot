@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from db_manager import init_db, add_dm_user, remove_dm_user, get_all_dm_users, is_dm_user
 
 load_dotenv()
 # Bot configuration
@@ -23,7 +24,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Global variables for tracking
 last_results = set()
 last_studefi_results = set()
-channel = None
+channels = []  # List of channels, one per guild
+dm_users = set()  # Will be loaded from database
+
 location_bounds = {
     "lon1": 1.9954155920674,
     "lat1": 49.095452162534826,
@@ -156,20 +159,43 @@ def create_studefi_embed(name, link):
     return embed
 
 
+async def send_to_all_channels(message=None, embed=None):
+    """Send a message or embed to all tracked channels and DM users"""
+    # Send to channels
+    for ch in channels:
+        try:
+            if message:
+                await ch.send(message)
+            if embed:
+                await ch.send(embed=embed)
+        except Exception as e:
+            print(f"Error sending to channel {ch}: {e}")
+    
+    # Send to DM usersf
+    for user_id in dm_users:
+        try:
+            user = bot.get_user(user_id)
+            if user:
+                if message:
+                    await user.send(message)
+                if embed:
+                    await user.send(embed=embed)
+        except Exception as e:
+            print(f"Error sending DM to user {user_id}: {e}")
+
+
 async def check_crous_api():
     """Check the CROUS API for new accommodations"""
-    global last_results, channel
+    global last_results
 
-    if not channel:
+    if not channels:
         return
 
     try:
         response = requests.post(API_URL, json=get_payload())
         print(f"Response API code : {response.status_code}")
         if response.status_code == 200:
-            
             data = response.json()
-            print(data)
             results = data.get('results', {})
             items = results.get('items', [])
             if items:
@@ -178,22 +204,19 @@ async def check_crous_api():
             current_results = {item.get('id') for item in items}
 
             # Find new items
-            new_items = []
-            for item in items:
-                if item.get('id') not in last_results:
-                    new_items.append(item)
+            new_items = [item for item in items if item.get('id') not in last_results]
 
             # Update last results
             last_results = current_results
 
             # Send alerts for new items
             if new_items:
-                await channel.send(
+                await send_to_all_channels(
                     f"🚨 **{len(new_items)} new accommodation(s) found!**")
 
                 for item in new_items:
                     embed = create_accommodation_embed(item)
-                    await channel.send(embed=embed)
+                    await send_to_all_channels(embed=embed)
 
             print(
                 f"API check completed. Found {len(items)} total items, {len(new_items)} new."
@@ -207,9 +230,9 @@ async def check_crous_api():
 
 async def check_studefi():
     """Check Studefi website for available residences"""
-    global last_studefi_results, channel
+    global last_studefi_results
 
-    if not channel:
+    if not channels:
         return
 
     try:
@@ -238,10 +261,11 @@ async def check_studefi():
             last_studefi_results = current_results
 
             if new_residences:
-                await channel.send(f"🏢 **{len(new_residences)} new Studefi residence(s) available!**")
+                await send_to_all_channels(
+                    f"🏢 **{len(new_residences)} new Studefi residence(s) available!**")
                 for name, link in new_residences:
                     embed = create_studefi_embed(name, link)
-                    await channel.send(embed=embed)
+                    await send_to_all_channels(embed=embed)
 
     except Exception as e:
         print(f"Error checking Studefi: {e}")
@@ -268,15 +292,20 @@ async def before_api_monitor():
 
 @bot.event
 async def on_ready():
-    global channel
+    global channels, dm_users
     print(f'Bot logged in as {bot.user}')
+    
+    # Initialize database and load DM users
+    init_db()
+    dm_users = get_all_dm_users()
+    print(f"Loaded {len(dm_users)} DM users from database")
 
+    channels = []
     # Find or create CrousAlert channel
     for guild in bot.guilds:
         existing_channel = discord.utils.get(guild.channels, name='crousalert')
         if existing_channel:
-            channel = existing_channel
-            break
+            channels.append(existing_channel)
         else:
             # Create the channel
             try:
@@ -284,12 +313,12 @@ async def on_ready():
                 await channel.send(
                     "🏠 **CROUS Alert Bot Started!**\nMonitoring for new accommodations every 5 seconds."
                 )
-                break
+                channels.append(channel)
             except discord.Forbidden:
                 print(f"No permission to create channel in {guild.name}")
 
-    if channel:
-        print(f"Using channel: {channel.name} in {channel.guild.name}")
+    if channels:
+        print(f"Using channels: {[ch.name for ch in channels]}")
         # Start both monitoring tasks
         if not api_monitor.is_running():
             api_monitor.start()
@@ -361,6 +390,14 @@ async def status(ctx):
         inline=False
     )
 
+    # DM Notifications Status
+    embed.add_field(
+        name="📱 DM Notifications",
+        value=f"Active for {len(dm_users)} users\n"
+              f"Your status: {'✅ Enabled' if ctx.author.id in dm_users else '❌ Disabled'}",
+        inline=False
+    )
+
     await ctx.send(embed=embed)
 
 
@@ -402,6 +439,31 @@ async def test(ctx):
         await ctx.send(f"❌ API test failed: {str(e)}")
 
 
+@bot.command(name='dm')
+async def toggle_dm(ctx):
+    """Toggle DM notifications for the user"""
+    user_id = ctx.author.id
+    
+    if user_id in dm_users:
+        dm_users.remove(user_id)
+        remove_dm_user(user_id)
+        embed = discord.Embed(
+            title="📳 DM Notifications Disabled",
+            description="You will no longer receive notifications in DM",
+            color=0xff0000
+        )
+    else:
+        dm_users.add(user_id)
+        add_dm_user(user_id)
+        embed = discord.Embed(
+            title="📳 DM Notifications Enabled",
+            description="You will now receive notifications in DM",
+            color=0x00ff00
+        )
+    
+    await ctx.send(embed=embed)
+
+
 @bot.command(name='help_crous')
 async def help_crous(ctx):
     """Show help information for the CROUS bot"""
@@ -416,6 +478,7 @@ async def help_crous(ctx):
         "**!setlocation** `<lon1> <lat1> <lon2> <lat2>` - Set search area\n"
         "**!status** - Show bot status\n"
         "**!test** - Test API connection\n"
+        "**!dm** - Toggle DM notifications\n"
         "**!help_crous** - Show this help",
         inline=False)
 
