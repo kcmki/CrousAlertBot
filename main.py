@@ -301,6 +301,15 @@ async def on_ready():
     dm_users = get_all_dm_users()
     print(f"Loaded {len(dm_users)} DM users from database")
 
+    # Notify all users with DM notifications enabled
+    for user_id in dm_users:
+        try:
+            user = await bot.fetch_user(user_id)
+            if user:
+                await user.send("📢 **CROUS Alert Bot is now online!**\nYou will continue to receive notifications.")
+        except Exception as e:
+            print(f"Error sending startup DM to user {user_id}: {e}")
+
     channels = []
     # Find or create CrousAlert channel
     for guild in bot.guilds:
