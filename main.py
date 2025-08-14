@@ -7,8 +7,9 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from db_manager import init_db, add_dm_user, remove_dm_user, get_all_dm_users, is_dm_user
-
+from dotenv import load_dotenv
 load_dotenv()
+
 # Bot configuration
 intents = discord.Intents.default()
 intents.message_content = True
