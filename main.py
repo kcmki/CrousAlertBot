@@ -13,6 +13,7 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
+intents.members = True
 intents.guild_messages = True
 from keep_alive import keep_alive
 
@@ -171,10 +172,10 @@ async def send_to_all_channels(message=None, embed=None):
         except Exception as e:
             print(f"Error sending to channel {ch}: {e}")
     
-    # Send to DM usersf
+    # Send to DM users
     for user_id in dm_users:
         try:
-            user = bot.get_user(user_id)
+            user = await bot.fetch_user(user_id)  # Use fetch_user instead of get_user
             if user:
                 if message:
                     await user.send(message)
