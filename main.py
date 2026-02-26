@@ -6,7 +6,8 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
-from db_manager import init_db, add_dm_user, remove_dm_user, get_all_dm_users, is_dm_user
+from db_manager import init_db, add_dm_user, remove_dm_user, get_all_dm_users, is_dm_user, add_to_queue, remove_from_queue, get_queue, is_in_queue
+from reservation import process_queue_for_residence
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -265,6 +266,14 @@ async def check_studefi():
             if new_residences:
                 await send_to_all_channels(
                     f"🏢 **{len(new_residences)} new Studefi residence(s) available!**")
+                
+                # Process queue for new residences
+                queue = get_queue()
+                if queue:
+                    for name, link in new_residences:
+                        # Ensure not to block the main loop by running in background
+                        asyncio.create_task(process_queue_for_residence(name, link, queue, bot))
+
                 for name, link in new_residences:
                     embed = create_studefi_embed(name, link)
                     await send_to_all_channels(embed=embed)
@@ -408,6 +417,15 @@ async def status(ctx):
               f"Your status: {'✅ Enabled' if ctx.author.id in dm_users else '❌ Disabled'}",
         inline=False
     )
+    
+    # Queue Status
+    queue = get_queue()
+    embed.add_field(
+        name="📥 Reservation Queue",
+        value=f"{len(queue)} user(s) in queue\n"
+              f"Your status: {'✅ In Queue' if is_in_queue(ctx.author.id) else '❌ Not in Queue'}",
+        inline=False
+    )
 
     await ctx.send(embed=embed)
 
@@ -475,6 +493,45 @@ async def toggle_dm(ctx):
     await ctx.send(embed=embed)
 
 
+@bot.command(name='queue')
+async def join_queue(ctx, email: str, *, residence: str = "First Available"):
+    """Join the Studefi reservation queue.
+    Usage: !queue <email> [residence...]
+    Example: !queue example@email.com Massy - Eric Tabarly
+    """
+    user_id = ctx.author.id
+    if is_in_queue(user_id):
+        await ctx.send("❌ You are already in the queue! Use !unqueue first if you want to change your settings.")
+        return
+        
+    add_to_queue(user_id, residence, email)
+    embed = discord.Embed(
+        title="📥 Joined Reservation Queue",
+        description=f"You have been added to the Studefi reservation queue.",
+        color=0x00ff00
+    )
+    embed.add_field(name="Email", value=email, inline=False)
+    embed.add_field(name="Residence", value=residence, inline=False)
+    await ctx.send(embed=embed)
+
+
+@bot.command(name='unqueue')
+async def leave_queue(ctx):
+    """Leave the Studefi reservation queue."""
+    user_id = ctx.author.id
+    if not is_in_queue(user_id):
+        await ctx.send("❌ You are not in the queue.")
+        return
+        
+    remove_from_queue(user_id)
+    embed = discord.Embed(
+        title="📤 Left Reservation Queue",
+        description="You have been removed from the Studefi reservation queue.",
+        color=0xff0000
+    )
+    await ctx.send(embed=embed)
+
+
 @bot.command(name='help_crous')
 async def help_crous(ctx):
     """Show help information for the CROUS bot"""
@@ -490,12 +547,15 @@ async def help_crous(ctx):
         "**!status** - Show bot status\n"
         "**!test** - Test API connection\n"
         "**!dm** - Toggle DM notifications\n"
+        "**!queue** `<email> [residence...]` - Join reservation queue\n"
+        "**!unqueue** - Leave reservation queue\n"
         "**!help_crous** - Show this help",
         inline=False)
 
     embed.add_field(name="How it works",
                     value="• Bot checks API every 5 seconds\n"
                     "• Alerts when new accommodations appear\n"
+                    "• Auto-reserves Studefi places if you are in the queue\n"
                     "• Location boundaries are customizable\n"
                     "• Shows detailed accommodation info",
                     inline=False)
