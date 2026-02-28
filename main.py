@@ -78,6 +78,27 @@ def get_payload():
     }
 
 
+def get_studefi_residence_names():
+    """Fetch all known residence names from Studefi"""
+    try:
+        response = requests.get(STUDEFI_URL, impersonate="chrome")
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            elements = soup.find_all("div", class_="col-sm-6 list-res-elem")
+            
+            residences = []
+            for elem in elements:
+                name_tag = elem.find("div", class_="list-res-link")
+                if name_tag and name_tag.find("a"):
+                    name = name_tag.find("a").get_text(strip=True)
+                    if name:
+                        residences.append(name)
+            return residences
+    except Exception as e:
+        print(f"Error fetching residences list: {e}")
+    return []
+
+
 def format_rent(rent_info):
     """Format rent information"""
     if rent_info:
@@ -504,6 +525,18 @@ async def join_queue(ctx, email: str, *, residence: str = "First Available"):
         await ctx.send("❌ You are already in the queue! Use !unqueue first if you want to change your settings.")
         return
         
+    if residence.lower() != "first available":
+        valid_residences = get_studefi_residence_names()
+        if valid_residences:
+            matched = False
+            for valid_res in valid_residences:
+                if residence.lower() in valid_res.lower():
+                    matched = True
+                    break
+            if not matched:
+                await ctx.send(f"❌ Valid residence name not found. Use `!residences` to see correct names.")
+                return
+
     add_to_queue(user_id, residence, email)
     embed = discord.Embed(
         title="📥 Joined Reservation Queue",
@@ -549,6 +582,7 @@ async def help_crous(ctx):
         "**!dm** - Toggle DM notifications\n"
         "**!queue** `<email> [residence...]` - Join reservation queue\n"
         "**!unqueue** - Leave reservation queue\n"
+        "**!residences** - List all valid Studefi residences\n"
         "**!help_crous** - Show this help",
         inline=False)
 
@@ -561,6 +595,26 @@ async def help_crous(ctx):
                     inline=False)
 
     await ctx.send(embed=embed)
+
+
+@bot.command(name='residences')
+async def list_residences(ctx):
+    """List all available Studefi residences"""
+    await ctx.send("🔍 Fetching Studefi residences...")
+    valid_residences = get_studefi_residence_names()
+    if valid_residences:
+        valid_residences.sort()
+        res_text = "\\n".join(f"• {r}" for r in valid_residences)
+        if len(res_text) > 4000:
+            res_text = res_text[:3997] + "..."
+        embed = discord.Embed(
+            title="🏢 Known Studefi Residences",
+            description=res_text,
+            color=0x0099ff
+        )
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ No residences found or error fetching them.")
 
 
 @bot.command()

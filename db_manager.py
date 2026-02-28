@@ -11,13 +11,17 @@ def init_db():
                  (user_id INTEGER PRIMARY KEY)''')
     c.execute('''CREATE TABLE IF NOT EXISTS studefi_queue
                  (user_id INTEGER, residence TEXT, email TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    try:
+        c.execute('''ALTER TABLE studefi_queue ADD COLUMN priority INTEGER DEFAULT 1''')
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
-def add_to_queue(user_id, residence, email):
+def add_to_queue(user_id, residence, email, priority=1):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("INSERT INTO studefi_queue (user_id, residence, email) VALUES (?, ?, ?)", (user_id, residence, email))
+    c.execute("INSERT INTO studefi_queue (user_id, residence, email, priority) VALUES (?, ?, ?, ?)", (user_id, residence, email, priority))
     conn.commit()
     conn.close()
 
@@ -29,10 +33,10 @@ def remove_from_queue(user_id):
     conn.close()
 
 def get_queue():
-    """Returns list of tuples (user_id, residence, email, timestamp) ordered by timestamp"""
+    """Returns list of tuples (user_id, residence, email, timestamp, priority) ordered by priority DESC, timestamp ASC"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT user_id, residence, email, timestamp FROM studefi_queue ORDER BY timestamp ASC")
+    c.execute("SELECT user_id, residence, email, timestamp, priority FROM studefi_queue ORDER BY priority DESC, timestamp ASC")
     queue = c.fetchall()
     conn.close()
     return queue

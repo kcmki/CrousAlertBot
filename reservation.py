@@ -79,7 +79,7 @@ async def process_queue_for_residence(name, link, queue_users, bot):
     """Attempt to reserve an apartment for the first matching user in queue."""
     # Find matching user
     target_user = None
-    for user_id, q_residence, email, _ in queue_users:
+    for user_id, q_residence, email, _, _ in queue_users:
         if q_residence.lower() == "first available" or q_residence.lower() in name.lower() or name.lower() in q_residence.lower():
             target_user = (user_id, email)
             break
