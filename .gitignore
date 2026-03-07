@@ -7,6 +7,5 @@ __pycache__/
 *$py.class
 
 *.pdf
-*.html
 *.log
 *.db

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CROUS Alert Bot & Studefi</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Poppins:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <header>
+        <div class="container navbar">
+            <div class="logo">
+                <span class="icon">🏠</span> HUD <span class="highlight">Bot</span>
+            </div>
+            <nav>
+                <a href="#features">Features</a>
+                <a href="#commands">Commands</a>
+                <a href="#status">Status</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" id="hero">
+            <div class="container hero-content">
+                <h1>Automate your <br><span class="gradient-text">Housing Search</span></h1>
+                <p>Advanced monitoring for CROUS accommodations and real-time auto-queueing for Studefi residences.
+                    Never miss a room again.</p>
+                <div class="cta-group">
+                    <a href="https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID_HERE&permissions=8&scope=bot"
+                        target="_blank" class="btn btn-primary"
+                        title="Replace YOUR_CLIENT_ID_HERE with your bot's Discord Client ID">Add to Discord</a>
+                    <a href="#commands" class="btn btn-secondary">View Commands</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="container section-header">
+                <h2>Why use this Bot?</h2>
+                <p>A powerful discord companion running 24/7 to secure your student accommodation.</p>
+            </div>
+            <div class="container grid-container">
+                <div class="card glass">
+                    <div class="card-icon">⚡</div>
+                    <h3>Real-time Tracking</h3>
+                    <p>Polls CROUS API every 5 seconds. Get instantly notified via Discord when a new accommodation
+                        matches your parameters.</p>
+                </div>
+                <div class="card glass">
+                    <div class="card-icon">🤖</div>
+                    <h3>Auto-Reservation</h3>
+                    <p>Enter our integrated Studefi queue. As soon as a residence becomes available, the bot attempts an
+                        automatic reservation for you.</p>
+                </div>
+                <div class="card glass">
+                    <div class="card-icon">📍</div>
+                    <h3>Custom Area Search</h3>
+                    <p>Define your exact search boundaries using GPS coordinates to filter only the residences that
+                        matter to you.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="commands" id="commands">
+            <div class="container section-header">
+                <h2>Discord Commands</h2>
+                <p>Interact with the bot seamlessly from your server</p>
+            </div>
+            <div class="container terminal glass">
+                <div class="terminal-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="terminal-body">
+                    <div class="command-line">
+                        <span class="prompt">&gt;</span> <span class="cmd">!setlocation</span> &lt;lon1&gt; &lt;lat1&gt;
+                        &lt;lon2&gt; &lt;lat2&gt;
+                        <div class="cmd-desc">// Set precise GPS bounds for your housing search</div>
+                    </div>
+                    <div class="command-line">
+                        <span class="prompt">&gt;</span> <span class="cmd">!queue</span> &lt;email&gt; [residence...]
+                        <div class="cmd-desc">// Join the Studefi auto-reservation queue</div>
+                    </div>
+                    <div class="command-line">
+                        <span class="prompt">&gt;</span> <span class="cmd">!status</span>
+                        <div class="cmd-desc">// View current monitoring state and active endpoints</div>
+                    </div>
+                    <div class="command-line">
+                        <span class="prompt">&gt;</span> <span class="cmd">!dm</span>
+                        <div class="cmd-desc">// Toggle private notifications directly to your DMs</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="status-cta" id="status">
+            <div class="container">
+                <div class="status-banner glass">
+                    <div class="status-info">
+                        <h2>System Online</h2>
+                        <p>The monitoring nodes are currently active and tracking residences.</p>
+                    </div>
+                    <div class="pulse-indicator">
+                        <div class="pulse"></div>
+                        <span class="pulse-text">Monitoring Active</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <p>© 2026 CROUS & Studefi Alert Bot. Open Source Project.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
